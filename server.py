@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Fixed errors with socket connections
-
+# modified server for continuous input
 """Server-end for the ASR demo."""
 import os
 import time
@@ -103,25 +102,29 @@ class AsrRequestHandler(SocketServer.BaseRequestHandler):
     """The ASR request handler."""
 
     def handle(self):
-        # receive data through TCP socket
-        print("received")
-        chunk = self.request.recv(1024)
-        target_len = struct.unpack('>i', chunk[:4])[0]
-        data = chunk[4:]
-        while len(data) < target_len:
-            chunk = self.request.recv(1024)
-            data += chunk
-        # write to file
-        filename = self._write_to_file(data)
+        while 1:
+            # receive data through TCP socket
+            print("received")
+            chunk = self.request.recv(1024).strip()
+            target_len = struct.unpack('>i', chunk[:4])[0]
+            data = chunk[4:]
 
-        print("Received utterance[length=%d] from %s, saved to %s." %
-              (len(data), self.client_address[0], filename))
-        start_time = time.time()
-        transcript = self.server.audio_process_handler(filename)
-        finish_time = time.time()
-        print("Response Time: %f, Transcript: %s" %
-              (finish_time - start_time, transcript))
-        self.request.sendall(transcript.encode('utf-8'))
+            while len(data) < target_len:
+                chunk = self.request.recv(1024)
+                data += chunk
+
+            # write to file
+            filename = self._write_to_file(data)
+
+            print("Received utterance[length=%d] from %s, saved to %s." %
+                  (len(data), self.client_address[0], filename))
+            start_time = time.time()
+            transcript = self.server.audio_process_handler(filename)
+            finish_time = time.time()
+            print("Response Time: %f, Transcript: %s" %
+                  (finish_time - start_time, transcript))
+            self.request.sendall(transcript.encode('utf-8'))
+            os.remove(filename)
 
     def _write_to_file(self, data):
         # prepare save dir and filename
